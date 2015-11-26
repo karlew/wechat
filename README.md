@@ -1,2 +1,2 @@
 # wechat
-wechat jsjdk
+wechat jssdk
