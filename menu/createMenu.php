@@ -15,7 +15,7 @@ $json=file_get_contents($token_url);
 $res=json_decode($json);
 $access_token=$res->access_token;
 
-//菜单数据
+//菜单数据，最多三个一级菜单button，一级菜单下面最多五个二级菜单sub_button
 $data='{
 "button":[
 	{
