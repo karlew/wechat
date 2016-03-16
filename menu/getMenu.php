@@ -7,7 +7,7 @@ header('Content-Type: text/html; charset=UTF-8');
 
 //替换为自己的appid和secret
 $appid="wx9b4b97f6ce6647ef";
-$secret="b1be97744f78714a5de17f4ca2823201";
+$secret="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
 
 //获取access_token
 $token_url="https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=".$appid."&secret=".$secret;
