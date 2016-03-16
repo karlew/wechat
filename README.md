@@ -1,2 +1,2 @@
 # wechat
-wechat jssdk
+wechat jssdk oauth2 menu autoRespond
