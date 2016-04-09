@@ -1,41 +1,60 @@
 <?php
 /**
-  * wechat php test
+  * 微信被动回复消息PHP后台url
+  * 2016.4.9  by karlew
   */
 
-//define your token
-define("TOKEN", "weixinkarlew");
-$wechatObj = new wechatCallbackapiTest();
+//将weixin替换为公众号后台设置的token
+define("TOKEN", "weixin");
+$wechatObj = new wechatCallbackapi();
 
-//判断是否为token验证
+//判断是token验证还是消息或事件推送
 if (isset($_GET['echostr'])) {
     $wechatObj->valid();
 }else{
     $wechatObj->responseMsg();
 }
 
-class wechatCallbackapiTest
+class wechatCallbackapi
 {
+    //token验证
 	public function valid()
     {
         $echoStr = $_GET["echostr"];
-        //valid signature , option
         if($this->checkSignature()){
             echo $echoStr;
         	exit;
         }
     }
+    //签名验证
+    private function checkSignature()
+    {
+        if (!defined("TOKEN")) {
+            throw new Exception('TOKEN is not defined!');
+        }
+        $signature = $_GET["signature"];
+        $timestamp = $_GET["timestamp"];
+        $nonce = $_GET["nonce"];   
+        $token = TOKEN;
+        $tmpArr = array($token, $timestamp, $nonce);
+        // 按官方文档要求，需字典排序
+        sort($tmpArr, SORT_STRING);
+        $tmpStr = implode( $tmpArr );
+        $tmpStr = sha1( $tmpStr );
+        
+        if( $tmpStr == $signature ){
+            return true;
+        }else{
+            return false;
+        }
+    }
 
+    //消息或事件回复
     public function responseMsg()
     {
-		//get post data, May be due to the different environments
 		$postStr = $GLOBALS["HTTP_RAW_POST_DATA"];
 
-      	//extract post data
 		if (!empty($postStr)){
-            /* libxml_disable_entity_loader is to prevent XML eXternal Entity Injection,
-               the best way is to check the validity of xml by yourself */
-            // libxml_disable_entity_loader(true);
           	$postObj = simplexml_load_string($postStr, 'SimpleXMLElement', LIBXML_NOCDATA);
             $fromUsername = $postObj->FromUserName;
             $toUsername = $postObj->ToUserName;
@@ -45,21 +64,13 @@ class wechatCallbackapiTest
             //通过MsgType判断消息类型
             //文本消息             
 			if($msgType=="text"){
-                require_once('text.php');
+                require_once('keyword.php');
                 $keyword = trim($postObj->Content);
-                $contentArr = textResponse($keyword,$fromUsername);
+                $responseArr = keywordResponse($keyword,$fromUsername);
                 //回复文本
-                if($contentArr['msgType']=="text"){
-                    if($contentArr['content']!="noreply"){
-                        $textTpl = "<xml>
-                            <ToUserName><![CDATA[%s]]></ToUserName>
-                            <FromUserName><![CDATA[%s]]></FromUserName>
-                            <CreateTime>%s</CreateTime>
-                            <MsgType><![CDATA[text]]></MsgType>
-                            <Content><![CDATA[%s]]></Content>
-                            </xml>";  
-                        $resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $contentArr['content']);
-                        echo $resultStr;
+                if($responseArr['msgType']=="text"){
+                    if($responseArr['content']!="noreply"){
+                        textResponse($fromUsername, $toUsername, $time, $responseArr['content'])
                     }
                     //无匹配关键字的情况
                     else{
@@ -68,39 +79,15 @@ class wechatCallbackapiTest
                     }
                 }
                 //图文消息回复
-                elseif($contentArr['msgType']=="news"){
-                    $textTpl = "<xml>
-                        <ToUserName><![CDATA[%s]]></ToUserName>
-                        <FromUserName><![CDATA[%s]]></FromUserName>
-                        <CreateTime>%s</CreateTime>
-                        <MsgType><![CDATA[news]]></MsgType>
-                        <ArticleCount>%s</ArticleCount>
-                        <Articles>%s</Articles>
-                        </xml>"; 
-                    $articleCount = count($contentArr['articles']);
-                    $articlesStr = "";
-                    for ($i=0; $i < $articleCount; $i++) { 
-                         $articlesStr .= "<item><Title><![CDATA[".$contentArr['articles'][$i]['Title']."]]></Title>";
-                         $articlesStr .= "<Description><![CDATA[".$contentArr['articles'][$i]['Description']."]]></Description>";
-                         $articlesStr .= "<PicUrl><![CDATA[".$contentArr['articles'][$i]['PicUrl']."]]></PicUrl>";
-                         $articlesStr .= "<Url><![CDATA[".$contentArr['articles'][$i]['Url']."]]></Url></item>";
-                     } 
-                    $resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $articleCount, $articlesStr);
-                    echo $resultStr;
+                elseif($responseArr['msgType']=="news"){
+                    $articleCount = count($responseArr['articles']);
+                    newsResponse($fromUsername, $toUsername, $time, $articleCount, $responseArr['articles'])
                 }
             }
             //语音消息
             elseif($msgType=="voice"){
-                $textTpl = "<xml>
-                    <ToUserName><![CDATA[%s]]></ToUserName>
-                    <FromUserName><![CDATA[%s]]></FromUserName>
-                    <CreateTime>%s</CreateTime>
-                    <MsgType><![CDATA[text]]></MsgType>
-                    <Content><![CDATA[%s]]></Content>
-                    </xml>"; 
                 $content = "语音消息我们是听不到的哦。\n所以无法回复语音消息，给您造成的不便敬请谅解。"; 
-                $resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $content);
-                echo $resultStr;
+                textResponse($fromUsername, $toUsername, $time, $content)
             }
             //事件推送
             elseif($msgType=="event"){
@@ -108,55 +95,21 @@ class wechatCallbackapiTest
                 $eventKey = trim($postObj->EventKey);
                 //用户关注事件
                 if($event=="subscribe"){
-                    $textTpl = "<xml>
-                        <ToUserName><![CDATA[%s]]></ToUserName>
-                        <FromUserName><![CDATA[%s]]></FromUserName>
-                        <CreateTime>%s</CreateTime>
-                        <MsgType><![CDATA[text]]></MsgType>
-                        <Content><![CDATA[%s]]></Content>
-                        </xml>";  
-                    $content = "感谢关注膜法世家服务号。马上签到即可获得更多积分哦~\n回复【1】即可签到\n回复【2】进入【幸运抽奖】\n回复【3】进入微社区晒单，抽奶皮面膜！";
-                    require_once('user.php');
-                    adduser($fromUsername);
-                    $resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $content);
-                    echo $resultStr;
+                    $content = "感谢关注XXXX。";
+                    textResponse($fromUsername, $toUsername, $time, $content)
                 }
                 //自定义菜单点击事件
                 elseif($event=="CLICK"){
                     require_once('click.php');
-                    $contentArr = eventResponse($fromUsername,$eventKey);
+                    $responseArr = eventResponse($eventKey,$fromUsername);
                     //文字消息回复
-                    if($contentArr['msgType']=="text"){
-                        $textTpl = "<xml>
-                            <ToUserName><![CDATA[%s]]></ToUserName>
-                            <FromUserName><![CDATA[%s]]></FromUserName>
-                            <CreateTime>%s</CreateTime>
-                            <MsgType><![CDATA[text]]></MsgType>
-                            <Content><![CDATA[%s]]></Content>
-                            </xml>";  
-                        $resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $contentArr['content']);
-                        echo $resultStr;
+                    if($responseArr['msgType']=="text"){
+                        textResponse($fromUsername, $toUsername, $time, $responseArr['content'])
                     }
                     //图文消息回复
-                    elseif($contentArr['msgType']=="news"){
-                        $textTpl = "<xml>
-                            <ToUserName><![CDATA[%s]]></ToUserName>
-                            <FromUserName><![CDATA[%s]]></FromUserName>
-                            <CreateTime>%s</CreateTime>
-                            <MsgType><![CDATA[news]]></MsgType>
-                            <ArticleCount>%s</ArticleCount>
-                            <Articles>%s</Articles>
-                            </xml>"; 
-                        $articleCount = count($contentArr['articles']);
-                        $articlesStr = "";
-                        for ($i=0; $i < $articleCount; $i++) { 
-                             $articlesStr .= "<item><Title><![CDATA[".$contentArr['articles'][$i]['Title']."]]></Title>";
-                             $articlesStr .= "<Description><![CDATA[".$contentArr['articles'][$i]['Description']."]]></Description>";
-                             $articlesStr .= "<PicUrl><![CDATA[".$contentArr['articles'][$i]['PicUrl']."]]></PicUrl>";
-                             $articlesStr .= "<Url><![CDATA[".$contentArr['articles'][$i]['Url']."]]></Url></item>";
-                         } 
-                        $resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $articleCount, $articlesStr);
-                        echo $resultStr;
+                    elseif($responseArr['msgType']=="news"){
+                        $articleCount = count($responseArr['articles']);
+                        newsResponse($fromUsername, $toUsername, $time, $articleCount, $responseArr['articles'])
                     }
                 }
             	//其他事件
@@ -177,31 +130,38 @@ class wechatCallbackapiTest
         	exit;
         }
     }
-		
-	private function checkSignature()
-	{
-        // you must define TOKEN by yourself
-        if (!defined("TOKEN")) {
-            throw new Exception('TOKEN is not defined!');
-        }
-        
-        $signature = $_GET["signature"];
-        $timestamp = $_GET["timestamp"];
-        $nonce = $_GET["nonce"];
-        		
-		$token = TOKEN;
-		$tmpArr = array($token, $timestamp, $nonce);
-        // use SORT_STRING rule
-		sort($tmpArr, SORT_STRING);
-		$tmpStr = implode( $tmpArr );
-		$tmpStr = sha1( $tmpStr );
-		
-		if( $tmpStr == $signature ){
-			return true;
-		}else{
-			return false;
-		}
-	}
+    //文本消息回复
+    public function textResponse($fromUsername, $toUsername, $time, $content){
+        $textTpl = "<xml>
+            <ToUserName><![CDATA[%s]]></ToUserName>
+            <FromUserName><![CDATA[%s]]></FromUserName>
+            <CreateTime>%s</CreateTime>
+            <MsgType><![CDATA[text]]></MsgType>
+            <Content><![CDATA[%s]]></Content>
+            </xml>";  
+        $resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $content);
+        echo $resultStr;
+    }
+    //回复图文消息
+    public function newsResponse($fromUsername, $toUsername, $time, $articleCount, $articlesArr){
+        $textTpl = "<xml>
+            <ToUserName><![CDATA[%s]]></ToUserName>
+            <FromUserName><![CDATA[%s]]></FromUserName>
+            <CreateTime>%s</CreateTime>
+            <MsgType><![CDATA[news]]></MsgType>
+            <ArticleCount>%s</ArticleCount>
+            <Articles>%s</Articles>
+            </xml>"; 
+        $articlesStr = "";
+        for ($i=0; $i < $articleCount; $i++) { 
+             $articlesStr .= "<item><Title><![CDATA[".$articlesArr[$i]['Title']."]]></Title>";
+             $articlesStr .= "<Description><![CDATA[".$articlesArr[$i]['Description']."]]></Description>";
+             $articlesStr .= "<PicUrl><![CDATA[".$articlesArr[$i]['PicUrl']."]]></PicUrl>";
+             $articlesStr .= "<Url><![CDATA[".$articlesArr[$i]['Url']."]]></Url></item>";
+         } 
+        $resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $articleCount, $articlesStr);
+        echo $resultStr;
+    }	
 }
 
 ?>
