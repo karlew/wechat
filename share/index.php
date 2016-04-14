@@ -29,7 +29,7 @@ function wx_get_jsapi_ticket(){
 }
 
 $appid = "wx9b4b97f6ce6647ef";  //替换为所用公众号的appid
-$appsecret = "b1be97744f78714a5de17f4ca2823201";  //替换为所用公众号的appsecret
+$appsecret = "b1be97744f78714a5de17f4ca2823211";  //替换为所用公众号的appsecret
 $weburl = "http://wx.karlew.com/share_test";
 $timestamp = time();  //生成签名的时间戳
 $nonceStr = "wm3wzytpz0wzccnw";  //随机字符串
