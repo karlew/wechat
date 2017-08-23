@@ -24,6 +24,14 @@ if(is_weixin()){
 	}
 }
 
+function is_weixin(){ 
+	if ( strpos($_SERVER['HTTP_USER_AGENT'], 
+	'MicroMessenger') !== false ) {
+		return true;
+	} 
+	return false;
+}
+
 ?>
 
 <!DOCTYPE HTML>
