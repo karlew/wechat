@@ -16,13 +16,13 @@ if(!$_GET['code']){
 	header("location:".$askurl);exit();
 }else{
 	//通过返回的code获取授权接口用到的access_token（跟基础接口的access_token不同）和openid
-	$tokenres = file_get_contents("https://api.weixin.qq.com/sns/oauth2/access_token?appid=".$appid."&secret=".$appsecret."&code=".$_GET['code']."&grant_type=Rauthorization_code");
-	$tokenres = json_decode($tokenres);
+	$tokenres = file_get_contents("https://api.weixin.qq.com/sns/oauth2/access_token?appid=".$appid."&secret=".$appsecret."&code=".$_GET['code']."&grant_type=authorization_code");
+	$tokenres = json_decode($tokenres,true);
 	$token = $tokenres['access_token'];
 	$openid = $tokenres['openid'];
 	//通过access_token和openid获取用户信息，详细可获取的内容请参考微信公众平台开发者文档
 	$infoRes = file_get_contents("https://api.weixin.qq.com/sns/userinfo?access_token=".$token."&openid=".$openid."&lang=zh_CN");
-	$infoRes = json_decode($infoRes);
+	$infoRes = json_decode($infoRes,true);
 	//用户昵称
 	$nickname = $infoRes['nickname'];
 	//用户性别

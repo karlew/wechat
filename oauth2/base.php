@@ -19,7 +19,7 @@ if(is_weixin()){
 	}else{
 		//通过返回的code获取openid
 		$res = file_get_contents("https://api.weixin.qq.com/sns/oauth2/access_token?appid=".$appid."&secret=".$appsecret."&code=".$_GET['code']."&grant_type=authorization_code");
-		$res = json_decode($res);
+		$res = json_decode($res,true);
 		$openid = $res['openid'];
 	}
 }
